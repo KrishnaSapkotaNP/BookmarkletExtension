@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Attendance Calculator — CMRIT ERP</title>
+    <meta name="description" content="See exactly how many classes you can miss — subject by subject. Sync directly from your college ERP with one click, or enter your data manually. No login, no storage, no account needed.">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+        <h1>Attendance Calculator</h1>
+    
+      <p class="tool-hero-desc">
+        See exactly how many classes you can miss — subject by subject. Sync directly from your college ERP with one click, or enter your data manually. No login, no storage, no account needed.<b>,You know what, I used CHATGPT to style it. Also maybe some extra styling.</b>
+      </p>
+
+
+  <div class="tool-page">
+    <div class="tool-panel">
+
+
+      <div class="input-group" style="margin-bottom:20px;">
+        <label class="input-label">Attendance target</label>
+        <div class="target-toggle" role="group" aria-label="Attendance target">
+          <label><input type="radio" name="target" value="75" checked onchange="recalc()" /><span>75% (minimum)</span></label>
+          <label><input type="radio" name="target" value="80" onchange="recalc()" /><span>80%</span></label>
+          <label><input type="radio" name="target" value="85" onchange="recalc()" /><span>85%</span></label>
+        </div>
+      </div>
+
+
+      <div class="bookmarklet-box">
+        <p style="font-weight:700;font-size:.95rem;color:var(--c-text);margin-bottom:4px;">⚡ Sync from your college ERP — one click</p>
+        <p>Go to your ERP attendance page, then click this bookmark. Your data will load instantly — no password ever leaves your browser.</p>
+
+        <a class="bookmarklet-link"
+           href="javascript:(function(){var tables=document.querySelectorAll('table');var data=[];tables.forEach(function(t){var rows=t.querySelectorAll('tr');rows.forEach(function(r){var cells=[].slice.call(r.querySelectorAll('td')).map(function(td){return td.innerText.trim();});if(cells.length===11&&cells[2]){data.push({code:cells[1],subject:cells[2],present:parseInt(cells[5]),absent:parseInt(cells[6]),total:parseInt(cells[9]),pct:parseFloat(cells[10])});}});});if(data.length){window.location=window.location='https://civvy.tech/vtu-sgpa/attendance-calculator.html?data='+encodeURIComponent(JSON.stringify(data));}else{alert('No attendance table found. Please make sure you are on your ERP attendance page.');}})();"
+           onclick="return false;"
+           title="Drag this to your bookmarks bar">
+          📌 Drag me to your bookmarks bar
+        </a>
+        <p class="step-hint">
+          Step 1: First of all click <strong>[CTRL+SHIFT+B]</strong><br> Then drag the button above to your bookmarks bar &nbsp;·&nbsp;
+          <br>Step 2: Open your ERP &amp; go to the attendance page &nbsp;·&nbsp;
+          <br>Step 3: Click the bookmark — done!
+        </p>
+      </div>
+
+      <div style="display:flex;align-items:center;gap:12px;margin:0 0 20px;">
+        <div style="flex:1;height:1px;background:var(--c-border);"></div>
+        <span style="font-size:.8rem;color:var(--c-text-muted);white-space:nowrap;">or enter manually</span>
+        <div style="flex:1;height:1px;background:var(--c-border);"></div>
+      </div>
+
+
+      <div id="manual-section">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;margin-bottom:6px;">
+          <span style="font-size:.75rem;font-weight:600;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.04em;padding-left:2px;">Subject</span>
+          <span style="font-size:.75rem;font-weight:600;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.04em;">Present</span>
+          <span style="font-size:.75rem;font-weight:600;color:var(--c-text-muted);text-transform:uppercase;letter-spacing:.04em;">Total held</span>
+          <span></span>
+        </div>
+        <div id="rows-container"></div>
+        <button class="add-row-btn" onclick="addRow()">+ Add subject</button>
+      </div>
+
+      <div id="error-msg" class="error-msg" role="alert" aria-live="polite" style="margin-top:12px;"></div>
+
+      <button class="calc-btn" style="margin-top:20px;" onclick="recalc(true)">📋 Calculate Attendance</button>
+
+
+      <div id="result-section" class="result-box" hidden>
+
+        <div class="summary-chips" id="summary-chips"></div>
+
+        <table class="subject-table" id="result-table">
+          <thead>
+            <tr>
+              <th>Subject</th>
+              <th>Attendance</th>
+              <th>Present / Total</th>
+              <th>Can miss</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="result-tbody"></tbody>
+        </table>
+
+        <div id="recovery-section" style="margin-top:20px;"></div>
+
+        <p class="result-note" style="margin-top:16px;opacity:.65;">
+          ℹ️ "Can miss" = classes you can skip and still stay at or above your target. "Need to attend" = consecutive classes required to recover if already below target.
+        </p>
+      </div>
+
+    </div>
+  </div>
+
+<script src="../nav.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  
+  var defaultSubjects = [
+    { subject: 'Subject 1', present: '', total: '' },
+    { subject: 'Subject 2', present: '', total: '' },
+    { subject: 'Subject 3', present: '', total: '' },
+  ];
+
+  function getTarget() {
+    return parseFloat(document.querySelector('input[name="target"]:checked').value) / 100;
+  }
+
+  var rows = [];
+
+  function renderRows() {
+    var container = document.getElementById('rows-container');
+    container.innerHTML = '';
+    rows.forEach(function (row, i) {
+      var div = document.createElement('div');
+      div.className = 'manual-row';
+      div.innerHTML =
+        '<input class="tool-input" type="text" placeholder="Subject name" value="' + escHtml(row.subject) + '" oninput="updateRow(' + i + ',\'subject\',this.value)" />' +
+        '<input class="tool-input" type="number" min="0" placeholder="Present" value="' + escHtml(row.present) + '" oninput="updateRow(' + i + ',\'present\',this.value)" />' +
+        '<input class="tool-input" type="number" min="0" placeholder="Total held" value="' + escHtml(row.total) + '" oninput="updateRow(' + i + ',\'total\',this.value)" />' +
+        '<button class="remove-btn" onclick="removeRow(' + i + ')" aria-label="Remove row">✕</button>';
+      container.appendChild(div);
+    });
+  }
+
+  window.updateRow = function (i, field, val) {
+    rows[i][field] = val;
+  };
+
+  window.removeRow = function (i) {
+    rows.splice(i, 1);
+    renderRows();
+  };
+
+  window.addRow = function () {
+    rows.push({ subject: '', present: '', total: '' });
+    renderRows();
+    var inputs = document.querySelectorAll('.manual-row input');
+    if (inputs.length) inputs[inputs.length - 3].focus();
+  };
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+
+  function loadFromUrl() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var raw = params.get('data');
+      if (!raw) return false;
+      var data = JSON.parse(decodeURIComponent(raw));
+      if (!Array.isArray(data) || !data.length) return false;
+      rows = data.map(function (d) {
+        return { subject: d.subject || d.code || '', present: d.present, total: d.total };
+      });
+      renderRows();
+      recalc(false);
+      return true;
+    } catch (e) { return false; }
+  }
+
+ 
+  window.recalc = function (force) {
+    var errEl = document.getElementById('error-msg');
+    errEl.textContent = ''; errEl.classList.remove('visible');
+
+    var target = getTarget();
+    var targetPct = target * 100;
+    var parsed = [];
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var present = parseInt(r.present);
+      var total   = parseInt(r.total);
+      var name    = String(r.subject).trim() || ('Subject ' + (i + 1));
+      if (isNaN(present) || isNaN(total)) continue;
+      if (total <= 0) continue;
+      if (present > total) {
+        if (force) { errEl.textContent = '"' + name + '": present cannot exceed total.'; errEl.classList.add('visible'); }
+        return;
+      }
+      var pct = (present / total) * 100;
+      var canMiss = 0;
+      var needMore = 0;
+      if (pct >= targetPct) {
+        
+       canMiss = Math.floor(present / target - total);
+        canMiss = Math.max(0, canMiss);
+      } else {
+        
+        needMore = Math.ceil((target * total - present) / (1 - target));
+      }
+      parsed.push({ name: name, present: present, total: total, pct: pct, canMiss: canMiss, needMore: needMore });
+    }
+
+    if (!parsed.length) {
+      if (force) { errEl.textContent = 'Please add at least one subject with valid present and total values.'; errEl.classList.add('visible'); }
+      document.getElementById('result-section').hidden = true;
+      return;
+    }
+
+    renderResults(parsed, target, targetPct);
+  };
+
+  function renderResults(data, target, targetPct) {
+    var safe    = data.filter(function(d){ return d.pct >= targetPct + 5; }).length;
+    var warn    = data.filter(function(d){ return d.pct >= targetPct && d.pct < targetPct + 5; }).length;
+    var danger  = data.filter(function(d){ return d.pct < targetPct; }).length;
+    var totalCanMiss = data.reduce(function(s,d){ return s + d.canMiss; }, 0);
+
+
+    var chips = document.getElementById('summary-chips');
+    chips.innerHTML =
+      '<div class="summary-chip"><div class="chip-val green">' + safe + '</div><div class="chip-label">Safe subjects</div></div>' +
+      '<div class="summary-chip"><div class="chip-val amber">' + warn + '</div><div class="chip-label">Borderline</div></div>' +
+      '<div class="summary-chip"><div class="chip-val red">'   + danger + '</div><div class="chip-label">At risk</div></div>' +
+      '<div class="summary-chip"><div class="chip-val">'       + totalCanMiss + '</div><div class="chip-label">Total skips left</div></div>';
+
+  
+    var tbody = document.getElementById('result-tbody');
+    tbody.innerHTML = '';
+    data.forEach(function (d) {
+      var barColor = d.pct >= targetPct + 5 ? '#4ade80' : d.pct >= targetPct ? '#facc15' : '#f87171';
+      var badgeClass = d.pct >= targetPct + 5 ? 'badge-safe' : d.pct >= targetPct ? 'badge-warn' : 'badge-danger';
+      var badgeText  = d.pct >= targetPct + 5 ? 'Safe' : d.pct >= targetPct ? 'Borderline' : 'At risk';
+      var canMissCell = d.canMiss > 0
+        ? '<span style="color:#16a34a;font-weight:700;">' + d.canMiss + '</span>'
+        : '<span style="color:#dc2626;font-weight:700;">0</span>';
+
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<td style="font-weight:500;">' + escHtml(d.name) + '</td>' +
+        '<td><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:' + Math.min(100,d.pct).toFixed(1) + '%;background:' + barColor + ';"></div></div><span style="font-size:.82rem;font-weight:600;min-width:38px;">' + d.pct.toFixed(1) + '%</span></div></td>' +
+        '<td style="color:var(--c-text-muted);">' + d.present + ' / ' + d.total + '</td>' +
+        '<td>' + canMissCell + '</td>' +
+        '<td><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>';
+      tbody.appendChild(tr);
+    });
+
+    
+    var atRisk = data.filter(function(d){ return d.needMore > 0; });
+    var rec = document.getElementById('recovery-section');
+    if (atRisk.length) {
+      var html = '<p style="font-weight:600;font-size:.9rem;margin-bottom:8px;color:#dc2626;">⚠️ Recovery plan — subjects below ' + targetPct + '%</p>';
+      atRisk.forEach(function (d) {
+        html += '<div class="recovery-box">📚 <strong>' + escHtml(d.name) + '</strong> — you need to attend the next <strong>' + d.needMore + ' consecutive classes</strong> to reach ' + targetPct + '% &nbsp;·&nbsp; Currently at ' + d.pct.toFixed(1) + '%</div>';
+      });
+      rec.innerHTML = html;
+    } else {
+      rec.innerHTML = '<div style="background:rgba(74,222,128,.08);border:1px solid rgba(74,222,128,.25);border-radius:10px;padding:12px 16px;font-size:.88rem;color:#15803d;">✅ All subjects are at or above your ' + targetPct + '% target.</div>';
+    }
+
+    document.getElementById('result-section').hidden = false;
+    document.getElementById('result-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  
+  rows = defaultSubjects.map(function(s){ return Object.assign({}, s); });
+  renderRows();
+
+  var loadedFromUrl = loadFromUrl();
+  if (!loadedFromUrl) {
+    
+  }
+
+  
+  document.querySelectorAll('.fade-up').forEach(function (el, i) {
+    el.style.transitionDelay = i * 80 + 'ms';
+    new IntersectionObserver(function(entries, obs) {
+      entries.forEach(function(e) { if (e.isIntersecting) { el.classList.add('visible'); obs.unobserve(el); } });
+    }, { threshold: 0.1 }).observe(el);
+  });
+
+})();
+</script>
+</body>
+</html>
