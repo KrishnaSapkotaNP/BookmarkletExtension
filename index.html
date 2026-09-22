@@ -34,7 +34,7 @@
         <p>Go to your ERP attendance page, then click this bookmark. Your data will load instantly — no password ever leaves your browser.</p>
 
         <a class="bookmarklet-link"
-           href="javascript:(function(){var tables=document.querySelectorAll('table');var data=[];tables.forEach(function(t){var rows=t.querySelectorAll('tr');rows.forEach(function(r){var cells=[].slice.call(r.querySelectorAll('td')).map(function(td){return td.innerText.trim();});if(cells.length===11&&cells[2]){data.push({code:cells[1],subject:cells[2],present:parseInt(cells[5]),absent:parseInt(cells[6]),total:parseInt(cells[9]),pct:parseFloat(cells[10])});}});});if(data.length){window.location=window.location='https://civvy.tech/vtu-sgpa/attendance-calculator.html?data='+encodeURIComponent(JSON.stringify(data));}else{alert('No attendance table found. Please make sure you are on your ERP attendance page.');}})();"
+           href="javascript:(function(){var tables=document.querySelectorAll('table');var data=[];tables.forEach(function(t){var rows=t.querySelectorAll('tr');rows.forEach(function(r){var cells=[].slice.call(r.querySelectorAll('td')).map(function(td){return td.innerText.trim();});if(cells.length===11&&cells[2]){data.push({code:cells[1],subject:cells[2],present:parseInt(cells[5]),absent:parseInt(cells[6]),total:parseInt(cells[9]),pct:parseFloat(cells[10])});}});});if(data.length){window.location='https://bookmarklet-extension.vercel.app/?data='+encodeURIComponent(JSON.stringify(data));}else{alert('No attendance table found. Please make sure you are on your ERP attendance page.');}})();"
            onclick="return false;"
            title="Drag this to your bookmarks bar">
           📌 Drag me to your bookmarks bar
